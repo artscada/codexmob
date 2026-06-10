@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0f">
+<title>Codex Android</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --app-height: 100dvh;
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a2e;
+    --border: #2a2a3e;
+    --text: #e0e0e0;
+    --text-dim: #8888aa;
+    --primary: #6c5ce7;
+    --primary-dim: #4a3db8;
+    --accent: #00d4aa;
+    --error: #ff4757;
+    --warning: #ffa502;
+    --success: #2ed573;
+    --font: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    height: var(--app-height);
+    min-height: var(--app-height);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+  /* Status Bar */
+  #status-bar {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  #status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #status-dot.disconnected { background: var(--text-dim); }
+  #status-dot.connecting { background: var(--warning); animation: pulse 1s infinite; }
+  #status-dot.connected { background: var(--success); }
+  #status-dot.error { background: var(--error); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  #status-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+  #status-version {
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+  #menu-btn {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 20px; cursor: pointer; padding: 2px 6px;
+    border-radius: 4px;
+  }
+  #menu-btn:hover { background: var(--border); color: var(--text); }
+
+  /* Messages Area */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    padding-bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .msg {
+    padding: 10px 14px;
+    border-radius: 8px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 100%;
+    animation: fadeIn 0.2s;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+  .msg.user {
+    background: var(--primary-dim);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+  }
+  .msg.assistant {
+    background: var(--surface2);
+    color: var(--text);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+  }
+  .msg.system {
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    padding: 4px;
+  }
+  .msg.error {
+    background: rgba(255,71,87,0.15);
+    color: var(--error);
+    border: 1px solid rgba(255,71,87,0.3);
+    align-self: flex-start;
+  }
+  .msg.thinking {
+    background: var(--surface2);
+    color: var(--accent);
+    font-size: 13px;
+    opacity: 0.8;
+  }
+  .msg-stream {
+    background: var(--surface2);
+    color: var(--accent);
+    align-self: flex-start;
+    border-left: 3px solid var(--accent);
+  }
+  .msg .timestamp {
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.5;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* Code blocks in messages */
+  .msg pre {
+    background: rgba(0,0,0,0.3);
+    padding: 8px 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 6px 0;
+    font-size: 12px;
+    border: 1px solid var(--border);
+  }
+  .msg code {
+    background: rgba(0,0,0,0.3);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  /* Input Area */
+  #input-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 12px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px;
+  }
+  #input-wrap:focus-within {
+    border-color: var(--primary);
+  }
+  #prompt-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 10px 12px;
+    resize: none;
+    max-height: 120px;
+    min-height: 20px;
+    line-height: 1.4;
+  }
+  #prompt-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+  #send-btn {
+    background: var(--primary);
+    border: none;
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin: 2px;
+    transition: background 0.2s;
+  }
+  #send-btn:disabled {
+    background: var(--border);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  #send-btn:not(:disabled):hover { background: var(--primary-dim); }
+  #send-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+  /* Dropdown Menu */
+  #menu-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+  #menu-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(88vw, 340px);
+    max-width: 340px;
+    height: var(--app-height);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: -16px 0 32px rgba(0,0,0,0.45);
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #menu.open { display: flex; }
+  #menu-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #menu-close {
+    background: none; border: none; color: var(--text-dim);
+    font-size: 22px; cursor: pointer;
+  }
+  #menu-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text);
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .menu-item:hover { background: var(--surface2); }
+  .menu-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .menu-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 8px;
+  }
+  .menu-section-title {
+    color: var(--text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 10px 12px 6px;
+  }
+  #chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 4px 6px;
+  }
+  .chat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+  }
+  .chat-item.active {
+    background: rgba(108,92,231,0.16);
+    border-color: rgba(108,92,231,0.32);
+  }
+  .chat-item-title {
+    color: var(--text);
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chat-item-meta {
+    color: var(--text-dim);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .chat-empty {
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  #chat-title {
+    max-width: 42vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Welcome Screen */
+  #welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+  #welcome.hidden { display: none; }
+  #welcome-logo {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+  #welcome h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  #welcome p {
+    color: var(--text-dim);
+    font-size: 13px;
+    max-width: 280px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .welcome-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--surface2);
+    border-radius: 20px;
+  }
+  .welcome-hint kbd {
+    background: var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    #messages { padding: 8px; }
+    .msg { font-size: 13px; padding: 8px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Status Bar -->
+<div id="status-bar">
+  <div id="status-dot" class="disconnected"></div>
+  <span id="status-text">Нет подключения</span>
+  <span id="chat-title"></span>
+  <span id="status-version">Codex v0.133.0</span>
+  <button id="menu-btn" onclick="toggleMenu()">⚙</button>
+</div>
+
+<!-- Messages Area -->
+<div id="messages" style="display:none"></div>
+
+<!-- Welcome Screen -->
+<div id="welcome">
+  <div id="welcome-logo">C</div>
+  <h1>Codex Android</h1>
+  <p>ИИ-агент для кода • Codex CLI прямо на Android</p>
+  <div class="welcome-hint">
+    <kbd>Enter</kbd> отправить &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> новая строка
+  </div>
+</div>
+
+<!-- Input Area -->
+<div id="input-area">
+  <div id="input-wrap">
+    <textarea id="prompt-input" rows="1" placeholder="Введи запрос для Codex..." disabled></textarea>
+    <button id="send-btn" disabled>
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Menu Overlay -->
+<div id="menu-overlay" onclick="toggleMenu()"></div>
+<div id="menu">
+  <div id="menu-header">
+    <span>Codex Android</span>
+    <button id="menu-close" onclick="toggleMenu()">✕</button>
+  </div>
+  <div id="menu-body">
+    <div class="menu-section-title">Диалоги</div>
+    <div id="chat-list"></div>
+    <div class="menu-item" onclick="toggleMenu();createNewChat()">
+      <span class="icon">➕</span> Создать новый диалог
+    </div>
+    <div class="menu-item" onclick="toggleMenu();deleteCurrentChat()">
+      <span class="icon">🗂</span> Удалить текущий диалог
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" onclick="toggleMenu();clearMessages()">
+      <span class="icon">🗑</span> Очистить чат
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" onclick="toggleMenu();showAbout()">
+      <span class="icon">ℹ</span> О приложении
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== State ==========
+// ========== Bridge (Android <-> JS) ==========
+const bridge = window.CodexAndroidBridge || {};
+
+function callBridge(method, ...args) {
+  if (bridge[method]) {
+    try { return bridge[method](...args); }
+    catch(e) { console.warn('Bridge call failed:', method, e); }
+  }
+  return null;
+}
+
+function parseBridgeJson(value, fallback) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    console.warn('JSON parse failed:', e, value);
+    return fallback;
+  }
+}
+
+// ========== Mode Detection ==========
+const API_MODE = !!callBridge('isApiMode') || window.CODEX_API_MODE || false;
+const LOCAL_NATIVE_MODE = !API_MODE && !!callBridge('isNativeLocalMode');
+const BRIDGE_STATE_LABELS = {
+  CONNECTED: 'Подключено',
+  DISCONNECTED: 'Нет подключения',
+  RUNNING: 'Выполняется',
+  ERROR: 'Ошибка',
+};
+let currentWsPort = window.CODEX_WS_PORT || 9877;
+let ws = null;
+let isConnected = false;
+let isProcessing = false;
+let streamBuffer = '';
+let reconnectTimer = null;
+let messageHistory = [];
+let requestCounter = 1;
+let pendingExternalPrompt = null;
+let lastHandledExternalPromptId = null;
+let currentChatId = null;
+let chatSessions = [];
+
+// ========== API Mode Tools ==========
+function connectToApi() {
+  console.log('API mode: connected');
+  addSystemMessage('Подключено к внешнему API Codex');
+  isConnected = true;
+  updateStatus('connected', 'Внешний API подключен');
+  document.getElementById('prompt-input').disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('prompt-input').focus();
+  trySendPendingExternalPrompt();
+}
+
+function connectToLocalNative() {
+  if (isConnected) return;
+  console.log('Local native mode: connected');
+  isConnected = true;
+  updateStatus('connected', 'Локальный Codex подключен');
+  document.getElementById('prompt-input').disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('prompt-input').focus();
+  addSystemMessage('Подключено к локальному Codex');
+  trySendPendingExternalPrompt();
+}
+
+function sendViaApi(text) {
+  const msg = JSON.stringify({ type: 'prompt', data: text, chatId: currentChatId });
+  const result = callBridge('postMessage', msg);
+  return result !== null && result !== false;
+}
+
+function cancelApiStream() {
+  callBridge('postMessage', JSON.stringify({ type: 'cancel', chatId: currentChatId }));
+}
+
+function clearApiHistory() {
+  callBridge('postMessage', JSON.stringify({ type: 'clear', chatId: currentChatId }));
+}
+
+// Android calls these on status changes
+window.onCodexStatusUpdate = function(state, wsPort, running) {
+  if (wsPort) {
+    currentWsPort = wsPort;
+    window.CODEX_WS_PORT = wsPort;
+  }
+  console.log('Codex status:', state, 'port:', wsPort, 'running:', running);
+  if (!API_MODE && running) connectWebSocket();
+};
+
+window.onCodexBridgeState = function(state) {
+  console.log('Bridge state:', state);
+  updateStatus(state === 'CONNECTED' ? 'connected' : 'disconnected', BRIDGE_STATE_LABELS[state] || state);
+};
+
+window.onCodexMessage = function(message) {
+  // Forward WebSocket messages from Android bridge to WebSocket handler
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    // Message from Android bridge, treat as WebSocket message
+    handleWsMessage({ data: message });
+  }
+};
+
+// ========== WebSocket ==========
+function connectWebSocket() {
+  if (LOCAL_NATIVE_MODE) {
+    connectToLocalNative();
+    return;
+  }
+
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
+  updateStatus('connecting', 'Подключение...');
+
+  const url = `ws://127.0.0.1:${currentWsPort}`;
+  console.log('Connecting to Codex WS:', url);
+
+  try {
+    ws = new WebSocket(url);
+
+    ws.onopen = function() {
+      console.log('WebSocket connected');
+      isConnected = true;
+      updateStatus('connected', 'Подключено');
+      document.getElementById('prompt-input').disabled = false;
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('prompt-input').focus();
+      addSystemMessage('Подключено к Codex exec-server');
+      trySendPendingExternalPrompt();
+    };
+
+    ws.onmessage = function(event) {
+      handleWsMessage(event);
+    };
+
+    ws.onerror = function(err) {
+      console.error('WebSocket error:', err);
+      updateStatus('error', 'Ошибка соединения');
+    };
+
+    ws.onclose = function() {
+      console.log('WebSocket closed');
+      isConnected = false;
+      isProcessing = false;
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('prompt-input').disabled = true;
+      updateStatus('disconnected', 'Соединение разорвано');
+      scheduleReconnect();
+    };
+  } catch(e) {
+    console.error('WebSocket creation failed:', e);
+    updateStatus('error', 'Не удалось создать соединение');
+    scheduleReconnect();
+  }
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(function() {
+    if (!isConnected) {
+      updateStatus('connecting', 'Повторное подключение...');
+      connectWebSocket();
+    }
+  }, 3000);
+}
+
+function buildExternalPrompt(text, subject) {
+  const cleanText = String(text || '').trim();
+  const cleanSubject = String(subject || '').trim();
+  if (cleanSubject && cleanText && !cleanText.startsWith(cleanSubject)) {
+    return cleanSubject + '\n\n' + cleanText;
+  }
+  return cleanText || cleanSubject;
+}
+
+function setPromptValue(text) {
+  const input = document.getElementById('prompt-input');
+  input.value = text;
+  input.dispatchEvent(new Event('input'));
+}
+
+function trySendPendingExternalPrompt() {
+  if (!pendingExternalPrompt) return;
+
+  setPromptValue(pendingExternalPrompt.text);
+
+  if (pendingExternalPrompt.autoSend && isConnected && !isProcessing) {
+    pendingExternalPrompt = null;
+    sendPrompt();
+  }
+}
+
+window.onSharedText = function(text, subject, autoSend, promptId, targetChatId, createNewChat) {
+  if (promptId && promptId === lastHandledExternalPromptId) {
+    return;
+  }
+
+  const prompt = buildExternalPrompt(text, subject);
+  if (!prompt) return;
+
+  if (promptId) {
+    lastHandledExternalPromptId = promptId;
+  }
+
+  if (targetChatId) {
+    currentChatId = targetChatId;
+    callBridge('selectChat', targetChatId);
+    refreshChatSessions();
+    const targetMessages = parseBridgeJson(callBridge('listMessages', targetChatId), []);
+    renderStoredMessages(targetMessages);
+  } else if (createNewChat) {
+    refreshChatSessions();
+  }
+
+  pendingExternalPrompt = {
+    id: promptId || null,
+    text: prompt,
+    autoSend: !!autoSend,
+    chatId: targetChatId || currentChatId || null,
+  };
+
+  setPromptValue(prompt);
+
+  if (autoSend) {
+    addSystemMessage(isConnected ? 'Получен внешний запрос. Отправляю в Codex.' : 'Получен внешний запрос. Отправлю после подключения Codex.');
+    trySendPendingExternalPrompt();
+  } else {
+    addSystemMessage('Внешний текст подставлен в поле ввода.');
+    pendingExternalPrompt = null;
+  }
+};
+
+function sendWsMessage(msg) {
+  if (LOCAL_NATIVE_MODE) {
+    callBridge('postMessage', JSON.stringify({ type: 'prompt', data: String(msg), chatId: currentChatId }));
+    return true;
+  }
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    const str = typeof msg === 'string'
+      ? JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'web-' + (requestCounter++),
+          method: 'execute',
+          params: {
+            prompt: msg,
+            stream: true,
+          },
+        })
+      : JSON.stringify(msg);
+    ws.send(str);
+    return true;
+  }
+  return false;
+}
+
+// ========== Message Handling ==========
+function handleWsMessage(event) {
+  let data;
+  try {
+    data = JSON.parse(event.data);
+  } catch(e) {
+    // Plain text message
+    addStreamChunk(event.data);
+    return;
+  }
+
+  // JSON-RPC response
+  if (data.jsonrpc === '2.0') {
+    if (data.method === 'response' && data.params) {
+      const content = data.params.content || '';
+      if (data.params.done) {
+        finishStreaming();
+      } else {
+        addStreamChunk(content);
+      }
+    }
+    // Request response with id
+    else if (data.id) {
+      if (data.result) {
+        addStreamChunk(typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2));
+        finishStreaming();
+      } else if (data.error) {
+        addErrorMessage('Ошибка: ' + (data.error.message || JSON.stringify(data.error)));
+        isProcessing = false;
+      } else {
+        // Empty response, just finish
+        finishStreaming();
+      }
+    }
+  } else {
+    // Non-JSON-RPC message
+    addStreamChunk(JSON.stringify(data, null, 2));
+  }
+}
+
+// ========== UI Updates ==========
+function updateStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = state;
+  txt.textContent = text || state;
+}
+
+function formatClock(timestamp) {
+  if (!timestamp) return '';
+  try {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+}
+
+function updateChatTitle() {
+  const titleEl = document.getElementById('chat-title');
+  const activeChat = chatSessions.find(chat => chat.id === currentChatId);
+  titleEl.textContent = activeChat ? activeChat.title : '';
+}
+
+function syncViewportHeight() {
+  const viewport = window.visualViewport;
+  const height = viewport ? Math.round(viewport.height) : window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', height + 'px');
+  document.body.style.height = height + 'px';
+  document.body.style.minHeight = height + 'px';
+  window.scrollTo(0, 0);
+}
+
+function keepLatestMessageVisible() {
+  const container = document.getElementById('messages');
+  if (!container || container.style.display === 'none') return;
+  container.scrollTop = container.scrollHeight;
+}
+
+function addMessage(html, cls) {
+  const container = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+
+  welcome.classList.add('hidden');
+  container.style.display = 'flex';
+
+  const div = document.createElement('div');
+  div.className = 'msg ' + (cls || '');
+  div.innerHTML = html;
+  container.appendChild(div);
+  keepLatestMessageVisible();
+  return div;
+}
+
+function addRenderedMessage(html, cls, timestamp) {
+  const ts = timestamp ? ' <span class="timestamp">' + escapeHtml(formatClock(timestamp)) + '</span>' : '';
+  return addMessage(html + ts, cls);
+}
+
+function renderStoredMessages(messages) {
+  const container = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+  container.innerHTML = '';
+  streamBuffer = '';
+
+  if (!messages || !messages.length) {
+    container.style.display = 'none';
+    welcome.classList.remove('hidden');
+    keepLatestMessageVisible();
+    return;
+  }
+
+  welcome.classList.add('hidden');
+  container.style.display = 'flex';
+
+  messages.forEach(message => {
+    if (message.role === 'user') {
+      addRenderedMessage(escapeHtml(message.content), 'user', message.createdAt);
+      return;
+    }
+    if (message.role === 'assistant') {
+      addRenderedMessage(formatMessage(message.content), 'assistant', message.createdAt);
+      return;
+    }
+    if (message.role === 'error') {
+      addRenderedMessage(escapeHtml(message.content), 'error', message.createdAt);
+      return;
+    }
+    addRenderedMessage(escapeHtml(message.content), 'system', message.createdAt);
+  });
+}
+
+function refreshChatSessions() {
+  chatSessions = parseBridgeJson(callBridge('listChats'), []);
+  if (!currentChatId && chatSessions.length) {
+    currentChatId = callBridge('getSelectedChatId') || chatSessions[0].id;
+  }
+  renderChatList();
+  updateChatTitle();
+}
+
+function renderChatList() {
+  const container = document.getElementById('chat-list');
+  if (!container) return;
+
+  if (!chatSessions.length) {
+    container.innerHTML = '<div class="chat-empty">Диалоги пока не созданы</div>';
+    return;
+  }
+
+  container.innerHTML = chatSessions.map(chat => {
+    const preview = escapeHtml(chat.lastMessagePreview || 'Пустой диалог');
+    const title = escapeHtml(chat.title || 'Новый диалог');
+    const time = escapeHtml(formatClock(chat.updatedAt));
+    const activeClass = chat.id === currentChatId ? ' active' : '';
+    return '<div class="chat-item' + activeClass + '" data-chat-id="' + escapeHtml(chat.id) + '">' +
+      '<div class="chat-item-title">' + title + '</div>' +
+      '<div class="chat-item-meta"><span>' + preview + '</span><span>' + time + '</span></div>' +
+      '</div>';
+  }).join('');
+
+  Array.from(container.querySelectorAll('.chat-item')).forEach(item => {
+    item.addEventListener('click', function() {
+      openChat(item.getAttribute('data-chat-id'));
+    });
+  });
+}
+
+function openChat(chatId) {
+  if (!chatId) return;
+  currentChatId = chatId;
+  callBridge('selectChat', chatId);
+  const messages = parseBridgeJson(callBridge('listMessages', chatId), []);
+  renderStoredMessages(messages);
+  refreshChatSessions();
+}
+
+function createNewChat() {
+  const created = parseBridgeJson(callBridge('createChat', ''), null);
+  if (!created || !created.id) return;
+  currentChatId = created.id;
+  renderStoredMessages([]);
+  refreshChatSessions();
+  updateSendButton();
+}
+
+function deleteCurrentChat() {
+  if (!currentChatId) return;
+  const nextChatId = callBridge('deleteChat', currentChatId);
+  currentChatId = nextChatId || null;
+  refreshChatSessions();
+  if (currentChatId) {
+    const messages = parseBridgeJson(callBridge('listMessages', currentChatId), []);
+    renderStoredMessages(messages);
+  } else {
+    renderStoredMessages([]);
+  }
+}
+
+function addSystemMessage(text) {
+  const ts = new Date().toLocaleTimeString();
+  addMessage(text + ' <span class="timestamp">' + ts + '</span>', 'system');
+}
+
+function addUserMessage(text) {
+  const ts = new Date().toLocaleTimeString();
+  const escaped = escapeHtml(text);
+  addMessage(escaped + ' <span class="timestamp">' + ts + '</span>', 'user');
+}
+
+function addAssistantMessage(text) {
+  const ts = new Date().toLocaleTimeString();
+  const formatted = formatMessage(text);
+  addMessage(formatted + ' <span class="timestamp">' + ts + '</span>', 'assistant');
+}
+
+function addErrorMessage(text) {
+  addMessage(escapeHtml(text), 'error');
+}
+
+function addStreamChunk(text) {
+  const container = document.getElementById('messages');
+  const welcome = document.getElementById('welcome');
+  welcome.classList.add('hidden');
+  container.style.display = 'flex';
+
+  // Find or create stream message
+  let streamEl = container.querySelector('.msg-stream:last-child');
+  if (!streamEl) {
+    streamEl = document.createElement('div');
+    streamEl.className = 'msg msg-stream';
+    container.appendChild(streamEl);
+  }
+
+  // Handle markdown code blocks
+  streamBuffer += text;
+  streamEl.innerHTML = formatMessage(streamBuffer);
+
+  keepLatestMessageVisible();
+}
+
+function finishStreaming() {
+  const container = document.getElementById('messages');
+  const streamEl = container.querySelector('.msg-stream:last-child');
+  if (streamEl) {
+    streamEl.className = 'msg assistant';
+    // Add timestamp
+    const ts = new Date().toLocaleTimeString();
+    streamEl.innerHTML += ' <span class="timestamp">' + ts + '</span>';
+  }
+  streamBuffer = '';
+  isProcessing = false;
+  updateSendButton();
+  refreshChatSessions();
+}
+
+// ========== Message Formatting ==========
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatMessage(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+
+  // Code blocks
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, function(match, lang, code) {
+    const escaped = escapeHtml(code);
+    return '<pre><code>' + escaped + '</code></pre>';
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // Lists
+  html = html.replace(/^- (.+)$/gm, '• $1');
+
+  return html;
+}
+
+// ========== Send / Input ==========
+function sendPrompt() {
+  const input = document.getElementById('prompt-input');
+  const text = input.value.trim();
+  if (!text || isProcessing) return;
+
+  if (!currentChatId) {
+    const selected = callBridge('getSelectedChatId');
+    if (selected) currentChatId = selected;
+  }
+
+  addUserMessage(text);
+  input.value = '';
+  input.style.height = 'auto';
+  isProcessing = true;
+  updateSendButton();
+
+  // Try API mode first (native bridge)
+  if (API_MODE) {
+    if (sendViaApi(text)) {
+      refreshChatSessions();
+      return;
+    }
+    // API mode fallback to WebSocket
+  }
+
+  // Try WebSocket
+  if (isConnected && sendWsMessage(text)) {
+    refreshChatSessions();
+    return;
+  }
+
+  addErrorMessage('Не удалось отправить сообщение: нет подключения к Codex');
+  isProcessing = false;
+  updateSendButton();
+}
+
+function updateSendButton() {
+  const btn = document.getElementById('send-btn');
+  btn.disabled = !isConnected || isProcessing;
+}
+
+// ========== Menu Actions ==========
+let isMenuOpen = false;
+
+function setMenuOpen(open) {
+  isMenuOpen = !!open;
+  document.getElementById('menu-overlay').classList.toggle('open', isMenuOpen);
+  document.getElementById('menu').classList.toggle('open', isMenuOpen);
+  if (isMenuOpen) {
+    renderChatList();
+    updateChatTitle();
+    setTimeout(syncViewportHeight, 10);
+  }
+}
+
+function toggleMenu(forceState) {
+  if (typeof forceState === 'boolean') {
+    setMenuOpen(forceState);
+    return;
+  }
+  setMenuOpen(!isMenuOpen);
+}
+
+function clearMessages() {
+  if (!currentChatId) return;
+  clearApiHistory();
+  renderStoredMessages([]);
+  refreshChatSessions();
+}
+
+function newSession() {
+  createNewChat();
+  addSystemMessage('Создан новый диалог');
+}
+
+function showAbout() {
+  addSystemMessage('Codex Android v0.133.0 — на базе OpenAI Codex CLI');
+}
+
+// ========== Auto-resize textarea ==========
+const input = document.getElementById('prompt-input');
+input.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  keepLatestMessageVisible();
+});
+input.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendPrompt();
+  }
+});
+input.addEventListener('focus', function() {
+  setTimeout(function() {
+    syncViewportHeight();
+    keepLatestMessageVisible();
+  }, 80);
+});
+input.addEventListener('blur', function() {
+  setTimeout(syncViewportHeight, 80);
+});
+document.getElementById('send-btn').addEventListener('click', sendPrompt);
+
+// ========== Init ==========
+updateStatus('disconnected', 'Ожидание запуска Codex...');
+if (API_MODE) {
+  updateStatus('connecting', 'Подключение к внешнему API...');
+} else if (LOCAL_NATIVE_MODE) {
+  updateStatus('connecting', 'Подключение к локальному Codex...');
+}
+
+syncViewportHeight();
+const initialChatState = parseBridgeJson(callBridge('getChatBootstrapState'), null);
+if (initialChatState) {
+  chatSessions = (initialChatState.chats || []).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  currentChatId = initialChatState.appState && initialChatState.appState.selectedChatId
+    ? initialChatState.appState.selectedChatId
+    : (chatSessions[0] ? chatSessions[0].id : null);
+  renderChatList();
+  updateChatTitle();
+  if (currentChatId) {
+    const initialMessages = (initialChatState.messages || []).filter(message => message.chatId === currentChatId);
+    renderStoredMessages(initialMessages);
+  }
+}
+window.addEventListener('resize', syncViewportHeight);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncViewportHeight);
+  window.visualViewport.addEventListener('scroll', syncViewportHeight);
+}
+
+// Auto-connect
+if (API_MODE) {
+  if (callBridge('isConfigured')) {
+    connectToApi();
+  }
+} else if (LOCAL_NATIVE_MODE) {
+  if (callBridge('isCodexReady')) {
+    connectToLocalNative();
+  }
+} else if (callBridge('isCodexReady')) {
+  connectWebSocket();
+}
+
+// ========== API Stream Handler ==========
+// Called from Android native bridge via evaluateJavascript
+window.onCodexStreamMessage = function(chunk) {
+  if (chunk === '__STREAM_END__') {
+    finishStreaming();
+    return;
+  }
+  if (chunk === '__STREAM_CANCELLED__') {
+    addSystemMessage('Отменено');
+    streamBuffer = '';
+    isProcessing = false;
+    updateSendButton();
+    return;
+  }
+  addStreamChunk(chunk);
+};
+
+window.onCodexApiError = function(error) {
+  addErrorMessage('Ошибка API: ' + error);
+  streamBuffer = '';
+  isProcessing = false;
+  updateSendButton();
+  refreshChatSessions();
+};
+
+// Override updateSendButton for API mode
+const _origUpdateSend = updateSendButton;
+updateSendButton = function() {
+  const btn = document.getElementById('send-btn');
+  if ((API_MODE || LOCAL_NATIVE_MODE) && isConnected) {
+    btn.disabled = isProcessing;
+  } else {
+    _origUpdateSend();
+  }
+};
+
+console.log('Codex Android UI loaded. API mode:', API_MODE, 'WS port:', currentWsPort);
+
+if (window.__pendingExternalPrompt && window.onSharedText) {
+  const queued = window.__pendingExternalPrompt;
+  window.onSharedText(queued.text, queued.subject, queued.autoSend, queued.id, queued.chatId, queued.createNewChat);
+}
+</script>
+</body>
+</html>

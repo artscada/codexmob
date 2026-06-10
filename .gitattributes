@@ -1,0 +1,2 @@
+app/src/main/assets/prebuilt/codex-aarch64-unknown-linux-musl filter=lfs diff=lfs merge=lfs -text
+app/src/main/assets/prebuilt/farm-base-rootfs.tar.gz filter=lfs diff=lfs merge=lfs -text

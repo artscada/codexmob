@@ -1,0 +1,19 @@
+#!/bin/bash
+# Git pre-push hook: 在推送前自动运行全部代码检查
+echo ""
+echo "========================================"
+echo "🔍 Pre-Push Hook: 运行全方位代码检查..."
+echo "========================================"
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+python3 plugins/pre-build-check/scripts/check_all.py
+status=$?
+if [ $status -ne 0 ]; then
+    echo ""
+    echo "❌ Pre-Push Hook: 代码检查未通过，推送已阻止。"
+    echo "   请修复错误后再次尝试推送。"
+    echo "   如需跳过检查: git push --no-verify"
+    exit 1
+fi
+echo "✅ Pre-Push Hook: 检查通过，继续推送..."
+exit 0

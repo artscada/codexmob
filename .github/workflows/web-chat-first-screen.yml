@@ -1,0 +1,162 @@
+name: Web Chat First-Screen Budget
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  first-screen:
+    name: Web Chat First-Screen Budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect web-chat changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event; running full first-screen budget check."
+            exit 0
+          fi
+          if git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            | grep -Eq '^(web-chat/|\.github/workflows/web-chat-first-screen\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "web-chat changes detected; running first-screen budget check."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No web-chat changes in this PR; budget check passes without building."
+          fi
+      - name: Setup Node.js
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web-chat/package-lock.json
+      - name: Install dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat ci
+      - name: Unit tests (first-screen metric math)
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat test
+      - name: Build web-chat
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat run build
+      - name: First-screen size summary
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm --silent --prefix web-chat run measure:summary > first-screen-summary.md
+          cat first-screen-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Check first-screen size budget
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat run measure:check
+      # Post the same report as one auto-updating ("sticky") PR comment so the
+      # size impact is visible in the PR conversation. Runs even when the budget
+      # check above fails (always()), so a regression still gets a comment. On
+      # forked-PR runs the default token is read-only for pull-requests; the
+      # try/catch keeps the job from failing there (the job summary remains the
+      # always-available fallback).
+      - name: Post first-screen size report as PR comment
+        if: always() && github.event_name == 'pull_request' && steps.changes.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- web-chat-first-screen-budget -->';
+            let report = '';
+            try {
+              report = fs.readFileSync('first-screen-summary.md', 'utf8');
+            } catch {
+              core.warning('first-screen-summary.md not found; skipping PR comment.');
+              return;
+            }
+            const body = `${marker}\n${report}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner, repo, issue_number, per_page: 100
+              });
+              const existing = comments.find((c) => c.body && c.body.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              }
+            } catch (err) {
+              core.warning(`Could not post PR comment (likely a forked-PR read-only token): ${err.message}`);
+            }
+
+  # On-device counterpart of the byte-size budget above. The byte gate only
+  # catches download-size regressions; this job drives a REAL headless Chromium
+  # (phone-like CPU + network throttling) and fails the PR when "ready to use"
+  # (TTI) or main-thread blocking (TBT) regress past tolerance — even if the
+  # bundle stayed flat. It self-gates on web-chat/** changes exactly like the
+  # byte job, and provisions Chromium so the check actually runs instead of
+  # silently skipping (the script SKIPs with exit 0 when no browser is present).
+  first-screen-browser:
+    name: Web Chat First-Screen On-Device (TTI/TBT)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect web-chat changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event; running full on-device first-screen check."
+            exit 0
+          fi
+          if git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            | grep -Eq '^(web-chat/|\.github/workflows/web-chat-first-screen\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "web-chat changes detected; running on-device first-screen check."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No web-chat changes in this PR; on-device check passes without building."
+          fi
+      - name: Setup Node.js
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            web-chat/package-lock.json
+      # Provide a real Chromium for puppeteer-core to drive. Without this the
+      # measure:browser:check script finds no browser and SKIPs (exit 0), so the
+      # gate would silently protect nothing.
+      - name: Install Chromium
+        if: steps.changes.outputs.changed == 'true'
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      # puppeteer-core lives in the ROOT devDependencies (the browser script
+      # dynamically imports it from there), so install root deps too.
+      - name: Install root dependencies (puppeteer-core)
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci
+      - name: Install web-chat dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat ci
+      - name: Build web-chat
+        if: steps.changes.outputs.changed == 'true'
+        run: npm --prefix web-chat run build
+      # Median of 3 samples per profile keeps run-to-run jitter down; the gate's
+      # tolerances (TTI +20%/min +150 ms, TBT +30%/min +50 ms) absorb the rest.
+      - name: Check on-device first-screen timings (TTI/TBT)
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          CHROMIUM_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+        run: npm --prefix web-chat run measure:browser:check

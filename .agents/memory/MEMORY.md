@@ -1,0 +1,3 @@
+- [Codex binary runtime](codex-binary-runtime.md) — Android 10+ W^X blocks exec from data dir; codex only ships aarch64/x86_64 musl; runtime upgrade needs no APK rebuild; waitFor before readText.
+- [Android release signing](android-release-signing.md) — CI signs assembleRelease only when 4 RELEASE_* GitHub secrets present (else debug fallback); keystore/passwords backup lives in gitignored .local/signing; losing it = no future updates.
+- [GitHub push & workflow scope](github-workflow-push-scope.md) — OAuth integration token lacks `workflow` scope so pushes touching .github/workflows/ fail (GH013); push with GITHUB_PERSONAL_ACCESS_TOKEN secret instead.

@@ -1,0 +1,207 @@
+name: Android APK Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    name: Android APK Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect Android build changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR event; running full Android APK build."
+            exit 0
+          fi
+          if git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            | grep -Eq '^(app/|quickjs/|fbx/|llama/|mnn/|mmd/|dragonbones/|showerclient/|gradle/|build\.gradle\.kts$|settings\.gradle\.kts$|gradle\.properties$|gradlew$|gradlew\.bat$|\.github/workflows/build-apk\.yml$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Android-relevant changes detected; running full APK build."
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No Android-relevant changes in this PR; build check passes without building."
+          fi
+      - name: Init quickjs submodule
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git submodule update --init quickjs/thirdparty/quickjs
+      - name: Setup Java
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Android SDK
+        if: steps.changes.outputs.changed == 'true'
+        uses: android-actions/setup-android@v3
+      - name: Install build-tools 36
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          sdkmanager "build-tools;36.0.0" --sdk_root=$ANDROID_HOME || true
+          ls $ANDROID_HOME/build-tools/
+      - name: Setup AAPT2 path for gradle.properties override
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          # Create the expected aapt2 path for gradle.properties override
+          sudo mkdir -p /opt/android-sdk/build-tools/36.0.0/
+          sudo ln -sf $ANDROID_HOME/build-tools/36.0.0/aapt2 /opt/android-sdk/build-tools/36.0.0/aapt2
+          echo "AAPT2 symlink created:"
+          ls -la /opt/android-sdk/build-tools/36.0.0/aapt2
+      - name: Setup Gradle
+        if: steps.changes.outputs.changed == 'true'
+        uses: gradle/actions/setup-gradle@v3
+      - name: Download binary dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          gh release download deps --repo weige369/codex-android \
+            --pattern "*.zip" --dir /tmp/deps
+          echo "=== Extracting jniLibs -> app/src/main/jniLibs/ ==="
+          unzip -o /tmp/deps/jniLibs.zip
+          echo "=== Extracting libs -> app/libs/ ==="
+          unzip -o /tmp/deps/libs.zip
+          echo "=== Extracting subpack -> app/src/main/assets/subpack/ ==="
+          unzip -o /tmp/deps/subpack.zip
+          echo "=== Extracting models -> app/src/main/assets/models/ ==="
+          unzip -o /tmp/deps/models.zip
+          echo "=== Verification ==="
+          AAR_COUNT=$(find app/libs -name "*.aar" 2>/dev/null | wc -l)
+          JAR_COUNT=$(find app/libs -name "*.jar" 2>/dev/null | wc -l)
+          echo "AARs found: $AAR_COUNT"
+          echo "JARs found: $JAR_COUNT"
+          JNILIBS_COUNT=$(find app/src/main/jniLibs -type f 2>/dev/null | wc -l)
+          echo "jniLibs files: $JNILIBS_COUNT"
+          if [ "$AAR_COUNT" -eq 0 ] && [ "$JAR_COUNT" -eq 0 ]; then
+            echo "WARNING: No AAR or JAR files found in app/libs/!"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+      - name: Decode and validate release keystore
+        id: signing
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$RELEASE_STORE_PASSWORD" ] \
+             && [ -n "$RELEASE_KEY_ALIAS" ] && [ -n "$RELEASE_KEY_PASSWORD" ]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/release-keystore.jks"
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+            # Validate keystore before committing to release build
+            keytool -list -keystore "$KEYSTORE_PATH" \
+              -storepass "$RELEASE_STORE_PASSWORD" \
+              -alias "$RELEASE_KEY_ALIAS" > /dev/null 2>&1
+            KEYTOOL_EXIT=$?
+            if [ "$KEYTOOL_EXIT" -eq 0 ]; then
+              {
+                echo "RELEASE_STORE_FILE=$KEYSTORE_PATH"
+                echo "RELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+                echo "RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+                echo "RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+              } >> local.properties
+              echo "signed=true" >> "$GITHUB_OUTPUT"
+              echo "Release signing configured and validated."
+            else
+              echo "signed=false" >> "$GITHUB_OUTPUT"
+              echo "WARNING: Keystore validation failed. Building unsigned debug APK."
+            fi
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "No signing secrets available; building unsigned debug APK."
+          fi
+        shell: bash
+      - name: Install platforms and NDK
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          yes | sdkmanager "platforms;android-36" "ndk;27.0.12077973" --sdk_root=$ANDROID_HOME || true
+          echo "Platforms and NDK installed."
+        shell: bash
+      - name: Bundle proot engine
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          JNILIBS_ARM64="app/src/main/jniLibs/arm64-v8a"
+          mkdir -p "$JNILIBS_ARM64"
+          echo "=== Downloading proot static binary for arm64 ==="
+          curl -sL -o "$JNILIBS_ARM64/libproot.so" "https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-aarch64-static" || {
+            echo "GitHub unreachable, trying mirror..."
+            curl -sL -o "$JNILIBS_ARM64/libproot.so" "https://mirror.ghproxy.com/https://github.com/proot-me/proot/releases/download/v5.3.0/proot-v5.3.0-aarch64-static" || {
+              echo "Falling back to Termux proot package..."
+              mkdir -p /tmp/proot-bundle
+              cd /tmp/proot-bundle
+              curl -sL -o proot.deb "https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107.72_aarch64.deb"
+              ar x proot.deb
+              for f in data.tar.*; do case "$f" in *.xz) tar xJf "$f"; esac; done
+              cp ./data/data/com.termux/files/usr/bin/proot "$JNILIBS_ARM64/libproot.so"
+              cp ./data/data/com.termux/files/usr/libexec/proot/loader "$JNILIBS_ARM64/libproot-loader.so"
+              cp ./data/data/com.termux/files/usr/libexec/proot/loader32 "$JNILIBS_ARM64/libproot-loader32.so"
+            }
+          }
+          chmod +x "$JNILIBS_ARM64/libproot.so" 2>/dev/null || true
+          file "$JNILIBS_ARM64/libproot.so"
+          echo "=== Proot engine bundled ==="
+        shell: bash
+      - name: Bundle libtalloc (proot dependency)
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          JNILIBS_ARM64="app/src/main/jniLibs/arm64-v8a"
+          # Check if proot from Termux needs libtalloc
+          if readelf -d "$JNILIBS_ARM64/libproot.so" 2>/dev/null | grep -q "NEEDED.*talloc"; then
+            echo "=== Downloading libtalloc ==="
+            mkdir -p /tmp/talloc-bundle
+            cd /tmp/talloc-bundle
+            curl -sL -o libtalloc.deb "https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_2.4.3_aarch64.deb"
+            ar x libtalloc.deb
+            for f in data.tar.*; do case "$f" in *.xz) tar xJf "$f"; esac; done
+            cp ./data/data/com.termux/files/usr/lib/libtalloc.so.2.4.3 "$JNILIBS_ARM64/libtalloc.so"
+            chmod +x "$JNILIBS_ARM64/libtalloc.so"
+            echo "=== libtalloc bundled ==="
+          else
+            echo "Static proot, no talloc needed"
+          fi
+        shell: bash
+      - name: Build
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          chmod +x gradlew
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            ./gradlew :app:assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+          else
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          fi
+        shell: bash
+      - name: Upload Build Log
+        if: always() && steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+      - name: Upload signed release APK
+        if: success() && steps.changes.outputs.changed == 'true' && steps.signing.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-Android-APK
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - name: Upload debug APK (unsigned fallback)
+        if: success() && steps.changes.outputs.changed == 'true' && steps.signing.outputs.signed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-Android-APK
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Notify on failure
+        if: failure() && steps.changes.outputs.changed == 'true'
+        run: |
+          echo "❌ Build failed. Check build-log artifact for details."
+          tail -50 build.log

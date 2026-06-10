@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LXChCuXxz-4Bmgb8CPNcE"
+uri = "file://.local/signing/codex-android-signing-backup.tar.gz"
+type = "unspecified"
+title = "签名备份（keystore + 密码）— 务必下载并妥善保存"

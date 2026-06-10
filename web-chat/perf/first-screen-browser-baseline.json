@@ -1,0 +1,81 @@
+{
+  "measuredAt": "2026-05-30T11:47:55.468Z",
+  "chromium": "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium",
+  "iterations": 3,
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "isMobile": true,
+    "hasTouch": true
+  },
+  "byteBaselineBuildId": "index-CE_bup-9.js",
+  "profiles": [
+    {
+      "profile": "LAN Wi-Fi + mid-tier phone",
+      "staticProfile": "LAN Wi-Fi (phone↔PC)",
+      "cpuRate": 4,
+      "kbps": 50000,
+      "rttMs": 10,
+      "samples": 3,
+      "metrics": {
+        "firstPaintMs": 132,
+        "firstContentfulPaintMs": 452,
+        "domContentLoadedMs": 175,
+        "loadMs": 176,
+        "domInteractiveMs": 47,
+        "overlayReadyMs": 507,
+        "timeToInteractiveMs": 507,
+        "totalBlockingTimeMs": 158
+      },
+      "estNetworkOnlyMs": {
+        "gzip": 20,
+        "brotli": 18
+      }
+    },
+    {
+      "profile": "Fast 3G/Slow 4G + mid-tier phone",
+      "staticProfile": "Fast 3G / Slow 4G",
+      "cpuRate": 4,
+      "kbps": 1600,
+      "rttMs": 150,
+      "samples": 3,
+      "metrics": {
+        "firstPaintMs": 2216,
+        "firstContentfulPaintMs": 3184,
+        "domContentLoadedMs": 2898,
+        "loadMs": 2898,
+        "domInteractiveMs": 194,
+        "overlayReadyMs": 3228,
+        "timeToInteractiveMs": 3228,
+        "totalBlockingTimeMs": 164
+      },
+      "estNetworkOnlyMs": {
+        "gzip": 450,
+        "brotli": 409
+      }
+    },
+    {
+      "profile": "Slow 3G + low-end phone",
+      "staticProfile": "Slow 3G",
+      "cpuRate": 6,
+      "kbps": 400,
+      "rttMs": 400,
+      "samples": 3,
+      "metrics": {
+        "firstPaintMs": 8328,
+        "firstContentfulPaintMs": 11364,
+        "domContentLoadedMs": 10948,
+        "loadMs": 10950,
+        "domInteractiveMs": 469,
+        "overlayReadyMs": 11437,
+        "timeToInteractiveMs": 11437,
+        "totalBlockingTimeMs": 295
+      },
+      "estNetworkOnlyMs": {
+        "gzip": 1600,
+        "brotli": 1435
+      }
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+/* Local interface theme presets layered over the server-driven palette.
+   Colour variables live in chatTheme.ts (applied inline on .ai-chat-screen);
+   the rules below add the structural identity each theme needs. */
+
+/* Modern — flat, no bubbles, generous whitespace. */
+.ai-chat-screen[data-theme="modern"] {
+  letter-spacing: 0.01em;
+}
+
+.ai-chat-screen[data-theme="modern"] .bubble-user-message,
+.ai-chat-screen[data-theme="modern"] .bubble-assistant-message {
+  box-shadow: none;
+}
+
+.ai-chat-screen[data-theme="modern"] .bubble-assistant-message {
+  border-bottom: 1px solid var(--chat-border);
+  border-radius: 0;
+  padding-bottom: 14px;
+}
+
+.ai-chat-screen[data-theme="modern"] .cursor-user-card {
+  border: 1px solid var(--chat-border);
+}
+
+/* Developer — terminal / code editor feel. */
+.ai-chat-screen[data-theme="developer"] .bubble-assistant-message {
+  border-left: 2px solid var(--chat-primary);
+  border-radius: 0 6px 6px 0;
+}
+
+.ai-chat-screen[data-theme="developer"] .cursor-message-label,
+.ai-chat-screen[data-theme="developer"] .bubble-message-header-copy strong {
+  font-family: var(--chat-font-family);
+  letter-spacing: 0.02em;
+}
+
+/* Glass — frosted translucent surfaces with gradient halos. */
+.ai-chat-screen[data-theme="glass"] .bubble-assistant-message,
+.ai-chat-screen[data-theme="glass"] .bubble-user-message,
+.ai-chat-screen[data-theme="glass"] .cursor-user-card,
+.ai-chat-screen[data-theme="glass"] .classic-settings-popup,
+.ai-chat-screen[data-theme="glass"] .chat-screen-header-stats-sheet,
+.ai-chat-screen[data-theme="glass"] .classic-theme-card {
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  border: 1px solid var(--chat-border);
+}
+
+.ai-chat-screen[data-theme="glass"] .chat-glass-backdrop-tint {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(167, 139, 250, 0.22), transparent 45%),
+    radial-gradient(circle at 80% 82%, rgba(125, 211, 252, 0.18), transparent 48%);
+}
+
+/* Theme picker preview cards inside the classic settings popup. */
+.classic-theme-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 8px 4px 4px;
+}
+
+.classic-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--chat-border);
+  background: var(--chat-card-soft);
+  color: var(--chat-text-main);
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.classic-theme-card:hover {
+  transform: translateY(-1px);
+}
+
+.classic-theme-card.is-active {
+  border-color: var(--chat-primary);
+  box-shadow: 0 0 0 1px var(--chat-primary);
+}
+
+.classic-theme-card-preview {
+  position: relative;
+  display: block;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.classic-theme-card-bar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  border-radius: 999px;
+  opacity: 0.85;
+}
+
+.classic-theme-card-bubble {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 60%;
+  height: 12px;
+  border-radius: 8px;
+}
+
+.classic-theme-card-preview[data-theme-preview="modern"] {
+  background: #0a0a0a;
+}
+.classic-theme-card-preview[data-theme-preview="modern"] .classic-theme-card-bar {
+  background: #fafafa;
+}
+.classic-theme-card-preview[data-theme-preview="modern"] .classic-theme-card-bubble {
+  background: #27272a;
+}
+
+.classic-theme-card-preview[data-theme-preview="developer"] {
+  background: #0d1117;
+}
+.classic-theme-card-preview[data-theme-preview="developer"] .classic-theme-card-bar {
+  background: #39d353;
+}
+.classic-theme-card-preview[data-theme-preview="developer"] .classic-theme-card-bubble {
+  background: #1f6feb;
+}
+
+.classic-theme-card-preview[data-theme-preview="glass"] {
+  background: linear-gradient(135deg, #2d1b4e, #10243f);
+}
+.classic-theme-card-preview[data-theme-preview="glass"] .classic-theme-card-bar {
+  background: rgba(255, 255, 255, 0.7);
+}
+.classic-theme-card-preview[data-theme-preview="glass"] .classic-theme-card-bubble {
+  background: rgba(167, 139, 250, 0.75);
+}
+
+.classic-theme-card-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.classic-theme-card-desc {
+  font-size: 11px;
+  color: var(--chat-text-soft);
+  line-height: 1.3;
+}

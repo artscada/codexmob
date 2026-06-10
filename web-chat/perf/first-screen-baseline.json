@@ -1,0 +1,140 @@
+{
+  "measuredAt": "2026-05-30T11:34:23.980Z",
+  "buildId": "index-CE_bup-9.js",
+  "firstScreen": {
+    "js": [
+      {
+        "name": "react-DYrC2osf.js",
+        "sizes": {
+          "raw": 192811,
+          "gzip": 59977,
+          "brotli": 51736
+        }
+      },
+      {
+        "name": "index-CE_bup-9.js",
+        "sizes": {
+          "raw": 183734,
+          "gzip": 47261,
+          "brotli": 39509
+        }
+      }
+    ],
+    "css": {
+      "name": "index-CDuGIP0A.css",
+      "sizes": {
+        "raw": 122998,
+        "gzip": 18188,
+        "brotli": 15407
+      }
+    },
+    "jsTotal": {
+      "raw": 376545,
+      "gzip": 107238,
+      "brotli": 91245
+    },
+    "criticalTotal": {
+      "raw": 499543,
+      "gzip": 125426,
+      "brotli": 106652
+    }
+  },
+  "deferred": {
+    "js": [
+      {
+        "name": "markdown-BhHLQLhe.js",
+        "sizes": {
+          "raw": 149736,
+          "gzip": 44234,
+          "brotli": 39021
+        }
+      },
+      {
+        "name": "glass-OIadho3n.js",
+        "sizes": {
+          "raw": 52993,
+          "gzip": 32910,
+          "brotli": 31639
+        }
+      },
+      {
+        "name": "html-sanitize-GoFsRstw.js",
+        "sizes": {
+          "raw": 26404,
+          "gzip": 9869,
+          "brotli": 8937
+        }
+      },
+      {
+        "name": "CodexVersionManager-Dv9v5kAK.js",
+        "sizes": {
+          "raw": 12035,
+          "gzip": 4540,
+          "brotli": 3870
+        }
+      },
+      {
+        "name": "vendor-BEF86llw.js",
+        "sizes": {
+          "raw": 6943,
+          "gzip": 3035,
+          "brotli": 2777
+        }
+      },
+      {
+        "name": "AgentActivityPanel-CENTqGQf.js",
+        "sizes": {
+          "raw": 4952,
+          "gzip": 1845,
+          "brotli": 1597
+        }
+      },
+      {
+        "name": "MarkdownRendererImpl-BigtxyFQ.js",
+        "sizes": {
+          "raw": 3105,
+          "gzip": 1106,
+          "brotli": 950
+        }
+      },
+      {
+        "name": "GlassSurfaceLiquid-7yhWjviD.js",
+        "sizes": {
+          "raw": 2780,
+          "gzip": 1182,
+          "brotli": 1061
+        }
+      },
+      {
+        "name": "HtmlBlockImpl-haBHq08e.js",
+        "sizes": {
+          "raw": 421,
+          "gzip": 319,
+          "brotli": 257
+        }
+      }
+    ],
+    "jsTotal": {
+      "raw": 259369,
+      "gzip": 99040,
+      "brotli": 90109
+    }
+  },
+  "network": [
+    {
+      "profile": "LAN Wi-Fi (phone↔PC)",
+      "estGzipMs": 20,
+      "estBrotliMs": 18
+    },
+    {
+      "profile": "Fast 3G / Slow 4G",
+      "estGzipMs": 450,
+      "estBrotliMs": 409
+    },
+    {
+      "profile": "Slow 3G",
+      "estGzipMs": 1600,
+      "estBrotliMs": 1435
+    }
+  ]
+}
