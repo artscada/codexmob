@@ -49,6 +49,29 @@ class SuRootBridge : RootBridge {
         return run("am $command")
     }
 
+    override suspend fun click(x: Int, y: Int): AndroidShellExecutor.ShellResult {
+        return run("input tap $x $y")
+    }
+
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Int): AndroidShellExecutor.ShellResult {
+        return run("input swipe $x1 $y1 $x2 $y2 $durationMs")
+    }
+
+    override suspend fun inputText(text: String): AndroidShellExecutor.ShellResult {
+        // Escape characters for 'input text' command.
+        // On modern Android, spaces can be replaced by %s or wrapped in quotes.
+        val escaped = text.replace(" ", "%s").replace("'", "\\'")
+        return run("input text '$escaped'")
+    }
+
+    override suspend fun takeScreenshot(outputPath: String): AndroidShellExecutor.ShellResult {
+        return run("screencap -p ${shellQuote(outputPath)}")
+    }
+
+    override suspend fun dumpWindowHierarchy(outputPath: String): AndroidShellExecutor.ShellResult {
+        return run("uiautomator dump ${shellQuote(outputPath)}")
+    }
+
     private fun shellQuote(value: String): String {
         return "'" + value.replace("'", "'\\''") + "'"
     }

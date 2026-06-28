@@ -56,7 +56,7 @@ class CodexLocalExecBridge(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val chatRepository = ChatSessionRepository.getInstance(context)
     private val rootBridge = SuRootBridge()
-    private val toolRouter = ToolRouter(LinuxRuntimeFactory.create(context), rootBridge)
+    private val toolRouter = ToolRouter(context, LinuxRuntimeFactory.create(context), rootBridge)
     private var currentJob: Job? = null
     @Volatile
     private var currentProcess: Process? = null

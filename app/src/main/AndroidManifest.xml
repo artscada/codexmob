@@ -43,6 +43,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <queries>
         <package android:name="com.codex.android.provider" />
@@ -213,6 +214,15 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/codex_widget_info" />
+        </receiver>
+
+        <!-- Automation Trigger Receiver -->
+        <receiver
+            android:name="com.codex.android.bridge.gui.AutomationTriggerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.codex.android.action.TRIGGER_AUTOMATION" />
+            </intent-filter>
         </receiver>
 
     </application>

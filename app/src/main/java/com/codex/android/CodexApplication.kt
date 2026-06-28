@@ -29,6 +29,7 @@ class CodexApplication : Application() {
         CrashHandler(this).register()
 
         CodexExternalHttpServer.getInstance(this).ensureStarted()
+        com.codex.android.bridge.gui.GuiIpcServer.getInstance(this).start()
 
         Log.i(TAG, "CodexApplication 初始化完成")
     }

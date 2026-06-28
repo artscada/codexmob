@@ -6,6 +6,7 @@ import com.codex.android.runtime.root.RootBridge
 import com.codex.android.util.AndroidShellExecutor
 
 class ToolRouter(
+    private val context: android.content.Context,
     private val linux: LinuxBackend,
     private val root: RootBridge
 ) {
@@ -14,7 +15,8 @@ class ToolRouter(
         ROOT,
         FILE,
         NETWORK,
-        SYSTEM
+        SYSTEM,
+        GUI
     }
 
     enum class ToolCategory {
@@ -24,6 +26,7 @@ class ToolRouter(
         NETWORK,
         SYSTEM,
         NOTIFICATION,
+        GUI,
         UNKNOWN
     }
 
@@ -156,6 +159,21 @@ class ToolRouter(
     suspend fun systemPm(command: String): AndroidShellExecutor.ShellResult = root.execPm(command)
     suspend fun systemAm(command: String): AndroidShellExecutor.ShellResult = root.execAm(command)
 
+    suspend fun routeGui(
+        action: String,
+        path: String = "",
+        content: String? = null,
+        value: String? = null,
+        timeoutMs: Long = 120_000L
+    ): AndroidShellExecutor.ShellResult {
+        return com.codex.android.bridge.gui.GuiAutomationEngine.getInstance(context).executeGuiAction(
+            action = action,
+            path = path,
+            content = content ?: value,
+            timeoutMs = timeoutMs
+        )
+    }
+
     suspend fun dispatch(
         target: ExecutionTarget,
         command: String = "",
@@ -175,6 +193,13 @@ class ToolRouter(
                 name = path.ifBlank { null },
                 value = value,
                 command = command,
+                timeoutMs = timeoutMs
+            )
+            ExecutionTarget.GUI -> routeGui(
+                action = action,
+                path = path,
+                content = content,
+                value = value,
                 timeoutMs = timeoutMs
             )
         }

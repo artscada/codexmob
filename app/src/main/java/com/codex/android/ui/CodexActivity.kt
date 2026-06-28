@@ -1,4 +1,4 @@
-﻿package com.codex.android.ui
+package com.codex.android.ui
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -118,6 +118,7 @@ class CodexActivity : ComponentActivity() {
         data class GitHubRepo(val repoFullName: String, val localPath: String) : Screen()
         data object GitHubPRList : Screen()
         data object GitHubIssueList : Screen()
+        data object GuiAutomation : Screen()
     }
 
     data class BottomNavItem(
@@ -399,6 +400,9 @@ class CodexActivity : ComponentActivity() {
                                 Screen.About -> AboutScreen(
                                     onBack = { navigateTo(Screen.Settings) }
                                 )
+                                Screen.GuiAutomation -> com.codex.android.ui.gui.GuiAutomationScreen(
+                                    onBack = { navigateTo(Screen.Workspace) }
+                                )
                                 Screen.SetupWizard -> SetupWizardScreen(
                                     onComplete = {
                                         lifecycleScope.launch {
@@ -533,6 +537,15 @@ class CodexActivity : ComponentActivity() {
                                     onClick = {
                                         showMoreMenu = false
                                         navigateTo(Screen.About)
+                                    }
+                                )
+                                MoreMenuItem(
+                                    icon = Icons.Default.Schedule,
+                                    title = "GUI Автоматизация",
+                                    desc = "Настройка расписания и рандомизации задач",
+                                    onClick = {
+                                        showMoreMenu = false
+                                        navigateTo(Screen.GuiAutomation)
                                     }
                                 )
                                 MoreMenuItem(

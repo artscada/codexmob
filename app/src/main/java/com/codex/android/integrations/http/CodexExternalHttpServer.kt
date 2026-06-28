@@ -128,6 +128,13 @@ class CodexExternalHttpServer private constructor(
             session.uri.startsWith("$RUNS_PATH/") && session.uri.endsWith("/cancel") && session.method == Method.POST -> handleCancelRun(session)
             session.uri == RUNS_PATH && session.method == Method.GET -> handleListRuns(session)
             session.uri.startsWith("$RUNS_PATH/") && session.method == Method.GET -> handleGetRun(session)
+            
+            // GUI Task Scheduler Endpoints
+            session.uri == "/api/gui/tasks" && session.method == Method.GET -> handleListGuiTasks(session)
+            session.uri == "/api/gui/tasks" && session.method == Method.POST -> handleSaveGuiTask(session)
+            session.uri == "/api/gui/tasks/toggle" && session.method == Method.POST -> handleToggleGuiTask(session)
+            session.uri == "/api/gui/tasks" && session.method == Method.DELETE -> handleDeleteGuiTask(session)
+            
             else -> jsonResponse(
                 Response.Status.NOT_FOUND,
                 ExternalChatResult(success = false, error = "API endpoint not found")
@@ -1101,6 +1108,124 @@ class CodexExternalHttpServer private constructor(
             }.withCors()
         }
         return null
+    }
+
+    private fun handleListGuiTasks(session: IHTTPSession): Response {
+        requireBearerToken(session)?.let { return it }
+
+        val db = com.codex.android.bridge.gui.RouteDatabaseHelper.getInstance(appContext)
+        val tasks = db.getAllAutomationTasks()
+        
+        val array = org.json.JSONArray()
+        tasks.forEach { task ->
+            array.put(org.json.JSONObject().apply {
+                put("id", task.id)
+                put("prompt", task.prompt)
+                put("mode", task.mode)
+                put("time_value", task.timeValue)
+                put("enabled", if (task.enabled) 1 else 0)
+                put("next_execution", task.nextExecution)
+            })
+        }
+        return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", array.toString()).withCors()
+    }
+
+    private fun handleSaveGuiTask(session: IHTTPSession): Response {
+        requireBearerToken(session)?.let { return it }
+
+        val body = readBody(session)
+        if (body.isBlank()) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "{\"error\": \"Request body is empty\"}").withCors()
+        }
+
+        return try {
+            val json = org.json.JSONObject(body)
+            val id = json.optInt("id", -1)
+            val prompt = json.getString("prompt")
+            val mode = json.getString("mode")
+            val timeValue = json.getString("time_value")
+            
+            val db = com.codex.android.bridge.gui.RouteDatabaseHelper.getInstance(appContext)
+            
+            val task = com.codex.android.bridge.gui.AutomationTask(
+                id = if (id != -1) id else 0,
+                prompt = prompt,
+                mode = mode,
+                timeValue = timeValue,
+                enabled = true,
+                nextExecution = 0
+            )
+
+            val finalId = if (id != -1) {
+                db.updateAutomationTask(task)
+                com.codex.android.bridge.gui.AutomationScheduler.scheduleTask(appContext, task)
+                id.toLong()
+            } else {
+                val newId = db.addAutomationTask(task)
+                val insertedTask = db.getAutomationTask(newId.toInt())
+                if (insertedTask != null) {
+                    com.codex.android.bridge.gui.AutomationScheduler.scheduleTask(appContext, insertedTask)
+                }
+                newId
+            }
+
+            val responseJson = org.json.JSONObject().apply {
+                put("success", true)
+                put("message", "Task saved and scheduled successfully")
+                put("taskId", finalId)
+            }
+            newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", responseJson.toString()).withCors()
+        } catch (e: Exception) {
+            newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "{\"error\": \"Invalid parameters: ${e.message}\"}").withCors()
+        }
+    }
+
+    private fun handleToggleGuiTask(session: IHTTPSession): Response {
+        requireBearerToken(session)?.let { return it }
+
+        val body = readBody(session)
+        if (body.isBlank()) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "{\"error\": \"Request body is empty\"}").withCors()
+        }
+
+        return try {
+            val json = org.json.JSONObject(body)
+            val id = json.getInt("id")
+            val enabled = json.getBoolean("enabled")
+
+            val db = com.codex.android.bridge.gui.RouteDatabaseHelper.getInstance(appContext)
+            val task = db.getAutomationTask(id)
+            if (task != null) {
+                val updatedTask = task.copy(enabled = enabled)
+                db.updateAutomationTask(updatedTask)
+                if (enabled) {
+                    com.codex.android.bridge.gui.AutomationScheduler.scheduleTask(appContext, updatedTask)
+                } else {
+                    com.codex.android.bridge.gui.AutomationScheduler.cancelTask(appContext, id)
+                }
+                newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", "{\"success\": true, \"message\": \"Task status updated successfully\"}").withCors()
+            } else {
+                newFixedLengthResponse(Response.Status.NOT_FOUND, "application/json; charset=utf-8", "{\"error\": \"Task not found\"}").withCors()
+            }
+        } catch (e: Exception) {
+            newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "{\"error\": \"Invalid parameters: ${e.message}\"}").withCors()
+        }
+    }
+
+    private fun handleDeleteGuiTask(session: IHTTPSession): Response {
+        requireBearerToken(session)?.let { return it }
+
+        val idStr = session.parameters["id"]?.firstOrNull()
+        val id = idStr?.toIntOrNull()
+        if (id == null) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "{\"error\": \"Missing or invalid query parameter: id\"}").withCors()
+        }
+
+        val db = com.codex.android.bridge.gui.RouteDatabaseHelper.getInstance(appContext)
+        com.codex.android.bridge.gui.AutomationScheduler.cancelTask(appContext, id)
+        db.deleteAutomationTask(id)
+        
+        return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", "{\"success\": true, \"message\": \"Task deleted successfully\"}").withCors()
     }
 
     private fun readBody(session: IHTTPSession): String {
