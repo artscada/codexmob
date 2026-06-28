@@ -58,8 +58,23 @@ class SuRootBridge : RootBridge {
     }
 
     override suspend fun inputText(text: String): AndroidShellExecutor.ShellResult {
-        // Escape characters for 'input text' command.
-        // On modern Android, spaces can be replaced by %s or wrapped in quotes.
+        // First try Unicode text injection using the ADBKeyboard (com.android.adbkeyboard) IME broadcast.
+        // It enables and sets AdbIME, then broadcasts the text message.
+        val escapedText = shellQuote(text)
+        
+        // Ensure ADBKeyboard is enabled and active as the default input method
+        run("ime enable com.android.adbkeyboard/.AdbIME 2>/dev/null")
+        run("ime set com.android.adbkeyboard/.AdbIME 2>/dev/null")
+        
+        val result = run("am broadcast -a ADB_INPUT_TEXT --es msg $escapedText")
+        
+        // If the broadcast was successfully sent and completed, return the result.
+        if (result.exitCode == 0 && result.stdout.contains("Broadcast completed")) {
+            return result
+        }
+
+        // Fallback: If ADBKeyboard is not installed or active, fall back to standard 'input text' (ASCII only)
+        android.util.Log.w("SuRootBridge", "ADBKeyboard broadcast failed, falling back to standard input text")
         val escaped = text.replace(" ", "%s").replace("'", "\\'")
         return run("input text '$escaped'")
     }
